@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="google_maps_key" templateMergeStrategy="preserve" translatable="false" >AIzaSyBHDHBlTLvFzTr6yjT-5NNUqQKt0dLlQ7k</string>
+    <string name="rute_key">5b3ce3597851110001cf6248807105cbed18485094b563a37cb2bf01</string>
+</resources>
