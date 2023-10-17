@@ -14,7 +14,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
         android:text="Escuchar"
-        android:id="@+id/button">
+        android:id="@+id/btnEscuchar">
     </Button>
 
 </FrameLayout>

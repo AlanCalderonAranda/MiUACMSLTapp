@@ -1,9 +1,14 @@
 package com.example.miuacmslt
 
+import android.app.Activity
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.location.Location
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.util.Log
 import android.widget.Button
@@ -29,10 +34,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, OnMyLocationButton
     TextToSpeech.OnInitListener {
     //Para el Mapa
     private lateinit var map: GoogleMap
-    private lateinit var btnCalculate: Button
+    private lateinit var btnCalculate: Button //Es el boton que dice escuchar
+    //private lateinit var btnEscuchar:Button
 
-    //Para voz a Texto
+    //Para Texto a Voz
     private lateinit var textToSpeech: TextToSpeech
+
+    //Voz a Texto
+    private val RQ_SPEECH_REC = 102
 
     //Lista de reproduccion para la voz
     private val textToSpeechQueue = LinkedList<String>()
@@ -40,6 +49,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, OnMyLocationButton
     //PARA LA RUTA
     //Localizacion del A007
     protected val a_007 = LatLng(19.313294, -99.057665)
+    private var salonDestino: String = "alan"
+    val salonesDisponibles = arrayListOf("a004", "a005", "a006", "a007", "a008", "a009", "a010")
 
     private var start: String = ""
     private var end: String = ""
@@ -53,23 +64,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, OnMyLocationButton
         const val REQUEST_CODE_LOCATION = 0
     }
 
-
-    private fun drawLineOnMap(startLocation: LatLng) {
-        //val startPoint = LatLng(19.314497, -99.059159)  // Latitud y longitud del primer punto
-        //val endPoint = LatLng(19.314161, -99.059105)  // Latitud y longitud del segundo punto
-        val endPoint = a_007
-
-        // Agregar marcadores para los puntos
-        map.addMarker(MarkerOptions().position(startLocation).title("Ubicación actual"))
-        map.addMarker(MarkerOptions().position(endPoint).title("Punto de destino"))
-
-        // Crear una línea entre los puntos
-        val line = map.addPolyline(PolylineOptions().add(startLocation, endPoint))
-
-        // Mover la cámara para que ambos puntos sean visibles en el mapa
-        //map.moveCamera(CameraUpdateFactory.newLatLngBounds(LatLngBounds(startLocation, endPoint), 100))
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -77,7 +71,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, OnMyLocationButton
         // Inicializa el cliente de ubicación.
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
-        btnCalculate = findViewById(R.id.button);
+        btnCalculate = findViewById(R.id.btnEscuchar);
 
         //Cargamos el Mapa
         createMapFragment()
@@ -85,16 +79,28 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, OnMyLocationButton
         //Inicializamos el textToSpeech
         textToSpeech = TextToSpeech(this, this)
 
-        //createRute()
-
         btnCalculate.setOnClickListener {
             start = ""
             end = ""
             poly?.remove()
             poly = null
+            //Primero escuchamos a que salon quiere ir
+            textoAVoz("Por favor dime a que aula quieres llegar: ")
+            askSpeechInput()
+            //trazarRuta()
+        }
+    }
+    private fun trazarRuta(){
+        if (salonesDisponibles.contains(salonDestino)) {
+            textoAVoz("Se trazara la ruta al salon que quieres llegar")
             if (::map.isInitialized) {
                 ubicacionActual { currentLocation ->
                     if (currentLocation != null) {
+                        val calculaD = calcularDistancia()
+                        val distancia:Double = calculaD.calculaDistancia(currentLocation,a_007)
+                        //val distanciaFormateada :String = String.format("%.2f",distancia)
+                        //textoAVoz("Estas a una distancia de: ${distanciaFormateada} metros")
+                        textoAVoz("Estas a una distancia de: ${distancia.toInt()} metros")
                         drawLineOnMap(currentLocation)
                     } else {
                         // Handle the case where current location is not available.
@@ -113,9 +119,20 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, OnMyLocationButton
             }
             val mapFragment = supportFragmentManager.findFragmentById(R.id.map) as SupportMapFragment
             mapFragment.getMapAsync(this)
+        } else {
+            if(salonDestino.equals("alan")){//Tenemos que ver si es la primera vez que selecciona un salon
+                print("ERROR")
+            }else{
+                textoAVoz("El salon que seleccionaste no esta disponible, intenta nuevamente")
+                Toast.makeText(
+                    this,
+                    "El salon que seleccionaste no esta disponible, intenta nuevamente",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
         }
-
     }
+
 
     private fun ubicacionActual(callback: (LatLng?) -> Unit) {
         if (ContextCompat.checkSelfPermission(
@@ -162,6 +179,41 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, OnMyLocationButton
     }
 
     //--------------------------------------- MAPA -------------------------------------------------//
+
+
+    //---------------------------------- VOZ A TEXTO ----------------------------------------------//
+    private fun askSpeechInput() {
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            Toast.makeText(this, "El Dictado de voz no está disponible", Toast.LENGTH_SHORT).show()
+        } else {
+            val i = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+            i.putExtra(
+                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+            )
+            i.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "es-419") // Para Spanish Latin
+            i.putExtra(RecognizerIntent.EXTRA_PROMPT, "Elige un salón")
+            startActivityForResult(i, RQ_SPEECH_REC) // Lanza la actividad de reconocimiento de voz
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == RQ_SPEECH_REC && resultCode == Activity.RESULT_OK) {
+            val result: ArrayList<String>? = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+            if (result != null && result.isNotEmpty()) {
+                salonDestino = result?.get(0).toString()
+                trazarRuta()
+            } else {
+                runOnUiThread {
+                    Toast.makeText(this, "Ocurrió un error", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    //---------------------------------- VOZ A TEXTO ----------------------------------------------//
+
     //Comprobar los persmisos de ubicacion
     private fun isLocationPermissionGranted() = ContextCompat.checkSelfPermission(
         this,
@@ -177,6 +229,26 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, OnMyLocationButton
         } else {//Si no
             requestLocationPermission()
         }
+    }
+
+    //Dibujar una Linea dados los 2 puntos en el mapa
+    private fun drawLineOnMap(startLocation: LatLng) {
+        //Borramos si hay una linea Anterior
+        poly?.remove()
+        //Le digo cual selecciono el usuario
+        val endPoint = a_007
+
+        // Agregar marcadores para los puntos
+        map.addMarker(MarkerOptions().position(startLocation).title("Ubicación actual"))
+        map.addMarker(MarkerOptions().position(endPoint).title("Punto de destino"))
+
+        // Dibujar la nueva línea
+        val polylineOptions = PolylineOptions()
+            .add(startLocation, endPoint)
+            .color(Color.RED)
+            .width(5f)
+
+        poly = map.addPolyline(polylineOptions)
     }
 
     private fun requestLocationPermission() {
