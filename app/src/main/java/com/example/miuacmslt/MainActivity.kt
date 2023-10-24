@@ -50,7 +50,15 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, OnMyLocationButton
     //Localizacion del A007
     protected val a_007 = LatLng(19.313294, -99.057665)
     private var salonDestino: String = "alan"
-    val salonesDisponibles = arrayListOf("a004", "a005", "a006", "a007", "a008", "a009", "a010")
+    val salonesDisponibles = arrayListOf(
+        arrayListOf("a004", 19.313343, -99.057829),
+        arrayListOf("a005", 19.313335, -99.057790),
+        arrayListOf("a006", 19.313321, -99.057761),
+        arrayListOf("a007", 19.313311, -99.057717),
+        arrayListOf("a008", 19.313290, -99.057668),
+        arrayListOf("a009", 19.313284, -99.057619),
+        arrayListOf("a010", 19.313271, -99.057570)
+    )
 
     private var start: String = ""
     private var end: String = ""
@@ -86,53 +94,57 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, OnMyLocationButton
             poly = null
             //Primero escuchamos a que salon quiere ir
             textoAVoz("Por favor dime a que aula quieres llegar: ")
-            askSpeechInput()
-            //trazarRuta()
-        }
-    }
-    private fun trazarRuta(){
-        if (salonesDisponibles.contains(salonDestino)) {
-            textoAVoz("Se trazara la ruta al salon que quieres llegar")
-            if (::map.isInitialized) {
-                ubicacionActual { currentLocation ->
-                    if (currentLocation != null) {
-                        val calculaD = calcularDistancia()
-                        val distancia:Double = calculaD.calculaDistancia(currentLocation,a_007)
-                        //val distanciaFormateada :String = String.format("%.2f",distancia)
-                        //textoAVoz("Estas a una distancia de: ${distanciaFormateada} metros")
-                        textoAVoz("Estas a una distancia de: ${distancia.toInt()} metros")
-                        drawLineOnMap(currentLocation)
-                    } else {
-                        // Handle the case where current location is not available.
-                        // You can display a message or take appropriate action.
-                    }
-                    /*PARA MARCAR DESDE EL CLICK AL MAPA
-                    map.setOnMapClickListener {
-                        if (start.isEmpty()) {
-                            start = "${it.longitude},${it.latitude}"
-                        } else if (end.isEmpty()) {
-                            end = "${it.longitude},${it.latitude}"
-                            createRoute()
-                        }
-                    }*/
-                }
-            }
-            val mapFragment = supportFragmentManager.findFragmentById(R.id.map) as SupportMapFragment
-            mapFragment.getMapAsync(this)
-        } else {
-            if(salonDestino.equals("alan")){//Tenemos que ver si es la primera vez que selecciona un salon
-                print("ERROR")
-            }else{
-                textoAVoz("El salon que seleccionaste no esta disponible, intenta nuevamente")
-                Toast.makeText(
-                    this,
-                    "El salon que seleccionaste no esta disponible, intenta nuevamente",
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
+            //askSpeechInput()
+            trazarRuta()
+
         }
     }
 
+    private fun trazarRuta() {
+        salonDestino="a004"
+        ubicacionActual { currentLocation -> //Obtenemos la ubicacion actual
+            if (currentLocation != null) {//Si la ubicacion actual no es nula entonces procedemos
+                var indiceEncontrado: Int? = null
+                for ((indice, elemento) in salonesDisponibles.withIndex()) {
+                    if (elemento[0] == salonDestino) {
+                        indiceEncontrado = indice
+                        break
+                    }
+                }
+                if (indiceEncontrado != null) {//Si esta dentro de los salones disponibles entonces traza la ruta
+                    textoAVoz("Se trazara la ruta al salon que quieres llegar")
+                    if (::map.isInitialized) {//Si el mapa ya esta inicializado entonces trazaremos la ruta
+                        //val calculaD = calcularDistancia()
+                        val elementoEncontrado = salonesDisponibles[indiceEncontrado]//Guardamos los datos del salon: cadena,latitud,longitud Destino
+                        val destino = LatLng(elementoEncontrado[1] as Double,elementoEncontrado[2] as Double)
+                        val distancia: Double = calcularDistancia().calculaDistancia(currentLocation,destino)
+                        textoAVoz("Estas a una distancia de: ${distancia.toInt()} metros")
+                        drawLineOnMap(currentLocation, destino)
+                    } else {
+                        Toast.makeText(
+                            this,
+                            "Ocurrio un error.... Intentalo mas tarde",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                    val mapFragment =
+                        supportFragmentManager.findFragmentById(R.id.map) as SupportMapFragment
+                    mapFragment.getMapAsync(this)
+                }else {
+                    if (salonDestino.equals("alan")) {//Tenemos que ver si es la primera vez que selecciona un salon
+                        print("ERROR")
+                    } else {
+                        textoAVoz("El salon que seleccionaste no esta disponible, intenta nuevamente")
+                        Toast.makeText(
+                            this,
+                            "El salon que seleccionaste no esta disponible, intenta nuevamente",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+            }//Fin si de la ubicacion null
+        }
+    }
 
     private fun ubicacionActual(callback: (LatLng?) -> Unit) {
         if (ContextCompat.checkSelfPermission(
@@ -200,7 +212,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, OnMyLocationButton
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == RQ_SPEECH_REC && resultCode == Activity.RESULT_OK) {
-            val result: ArrayList<String>? = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+            val result: ArrayList<String>? =
+                data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
             if (result != null && result.isNotEmpty()) {
                 salonDestino = result?.get(0).toString()
                 trazarRuta()
@@ -232,11 +245,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, OnMyLocationButton
     }
 
     //Dibujar una Linea dados los 2 puntos en el mapa
-    private fun drawLineOnMap(startLocation: LatLng) {
+    private fun drawLineOnMap(startLocation: LatLng, endPoint: LatLng) {
         //Borramos si hay una linea Anterior
         poly?.remove()
         //Le digo cual selecciono el usuario
-        val endPoint = a_007
+        //val endPoint = a_007
 
         // Agregar marcadores para los puntos
         map.addMarker(MarkerOptions().position(startLocation).title("Ubicación actual"))
@@ -383,6 +396,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, OnMyLocationButton
     }
 
     fun textoAVoz(text: String) {
+        val rate = 1.3f
+        textToSpeech.setSpeechRate(rate)
         textToSpeech.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
     }
     //##################################  TEXTO - VOZ ##################################################//

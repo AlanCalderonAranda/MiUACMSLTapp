@@ -67,6 +67,8 @@ class Principal : AppCompatActivity(), TextToSpeech.OnInitListener{
     fun textoAVoz(text: String) {
         val params = HashMap<String, String>()
         params[TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID] = UUID.randomUUID().toString()
+        val rate = 1.3f
+        textToSpeech.setSpeechRate(rate)
         textToSpeech.speak(text, TextToSpeech.QUEUE_ADD, params)
     }
 
