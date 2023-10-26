@@ -10,16 +10,30 @@
       android:id="@+id/btnTutorial"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
-      android:layout_gravity="bottom"
-      android:layout_marginTop="24dp"
-      android:layout_marginBottom="8dp"
       android:text="Tutorial"
-      app:layout_constraintBottom_toTopOf="@+id/imageView"
-      app:layout_constraintEnd_toEndOf="parent"
-      app:layout_constraintHorizontal_bias="0.0"
-      app:layout_constraintStart_toStartOf="parent"
       app:layout_constraintTop_toTopOf="parent"
+      app:layout_constraintEnd_toEndOf="parent"
+      app:layout_constraintStart_toStartOf="parent"
       tools:ignore="MissingConstraints"></Button>
+
+  <ImageView
+      android:id="@+id/imageView"
+      android:layout_width="0dp"
+      android:layout_height="275dp"
+      app:layout_constraintTop_toBottomOf="@+id/btnTutorial"
+      app:layout_constraintEnd_toEndOf="parent"
+      app:layout_constraintStart_toStartOf="parent"
+      app:srcCompat="@drawable/slt" />
+
+  <ImageView
+      android:id="@+id/imageView2"
+      android:layout_width="0dp"
+      android:layout_height="416dp"
+      app:layout_constraintTop_toBottomOf="@+id/imageView"
+      app:layout_constraintEnd_toEndOf="parent"
+      app:layout_constraintStart_toStartOf="parent"
+      app:layout_constraintBottom_toBottomOf="parent"
+      app:srcCompat="@drawable/mapauacm" />
 
   <Button
       android:id="@+id/btnSkip"
@@ -28,32 +42,7 @@
       android:text="Acceder"
       app:layout_constraintBottom_toBottomOf="parent"
       app:layout_constraintEnd_toEndOf="parent"
-      app:layout_constraintHorizontal_bias="0.5"
       app:layout_constraintStart_toStartOf="parent"
-      tools:ignore="MissingConstraints"></Button>
-
-  <ImageView
-      android:id="@+id/imageView"
-      android:layout_width="398dp"
-      android:layout_height="275dp"
-      android:layout_marginBottom="1dp"
-      app:layout_constraintBottom_toTopOf="@+id/imageView2"
-      app:layout_constraintEnd_toEndOf="parent"
-      app:layout_constraintHorizontal_bias="0.5"
-      app:layout_constraintStart_toStartOf="parent"
-      app:layout_constraintTop_toBottomOf="@+id/btnTutorial"
-      app:srcCompat="@drawable/slt" />
-
-  <ImageView
-      android:id="@+id/imageView2"
-      android:layout_width="475dp"
-      android:layout_height="416dp"
-      android:layout_marginTop="1dp"
-      android:layout_marginBottom="24dp"
-      app:layout_constraintBottom_toBottomOf="parent"
-      app:layout_constraintEnd_toEndOf="parent"
-      app:layout_constraintStart_toStartOf="parent"
-      app:layout_constraintTop_toBottomOf="@+id/imageView"
-      app:srcCompat="@drawable/mapauacm" />
+      android:layout_marginBottom="16dp"></Button>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
