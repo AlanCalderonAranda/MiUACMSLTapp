@@ -11,6 +11,7 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.util.Log
+import android.view.View
 import android.widget.Button
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
@@ -35,7 +36,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, OnMyLocationButton
     //Para el Mapa
     private lateinit var map: GoogleMap
     private lateinit var btnCalculate: Button //Es el boton que dice escuchar
+    private lateinit var btnRuta: Button
     //private lateinit var btnEscuchar:Button
+    private var rutaTrazada:Boolean = false
+    //Para saber si esta lanzada la escucha de voz
+    private var preguntaEnProgreso: Boolean = false
+
 
     //Para Texto a Voz
     private lateinit var textToSpeech: TextToSpeech
@@ -50,6 +56,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, OnMyLocationButton
     //Localizacion del A007
     protected val a_007 = LatLng(19.313294, -99.057665)
     private var salonDestino: String = "alan"
+    private var respuesta:String = " "
+
     val salonesDisponibles = arrayListOf(
         arrayListOf("a004", 19.313343, -99.057829),
         arrayListOf("a005", 19.313335, -99.057790),
@@ -79,7 +87,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, OnMyLocationButton
         // Inicializa el cliente de ubicación.
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
-        btnCalculate = findViewById(R.id.btnEscuchar);
+        btnCalculate = findViewById(R.id.btnEscuchar)
+        btnRuta = findViewById(R.id.btnRuta)
+        //Ocultamos el boton de Comenzar viaje
+        btnRuta.visibility = View.INVISIBLE
+
 
         //Cargamos el Mapa
         createMapFragment()
@@ -93,28 +105,53 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, OnMyLocationButton
             poly?.remove()
             poly = null
             //Primero escuchamos a que salon quiere ir
-            textoAVoz("Por favor dime a que aula quieres llegar: ")
-            //askSpeechInput()
-            trazarRuta()
+            //textoAVoz("Por favor dime a que aula quieres llegar: ")
+            askSpeechInput("Dime a que Aula es a la que quieres llegar")
+            //comprobamos si el salon que dijo esta en los disponibles
+            var indiceEncontrado: Int = -1
+            for ((indice, elemento) in salonesDisponibles.withIndex()) {
+                if (elemento[0] == respuesta) {
+                    indiceEncontrado = indice
+                    break
+                }
+            }
+            if (indiceEncontrado != -1) {
+                trazarRuta(indiceEncontrado)
+            }else{
+                print("El salon buscado no concuerda")
+            }
+        }
+
+        btnRuta.setOnClickListener{
+            textoAVoz("Deseas comenzar el viaje? Responde con Si o No")
+            askSpeechInput("Responde con Si o No")
+            Log.d("MiTag", "-------------------$respuesta-----------------")
+            if (respuesta.equals("Si", ignoreCase = true)){
+                //Comenzaremos el viaje
+            }
+            if(respuesta.equals("No", ignoreCase = true)){
+                btnRuta.visibility = View.INVISIBLE
+                btnCalculate.visibility = View.VISIBLE
+                //Elimino la linea y los marcadores
+                poly?.remove()
+                map.clear()
+            }
+            Log.d("MiTag", "-------------------$respuesta-----------------")
         }
     }
 
-    private fun trazarRuta() {
-        salonDestino = "a004"
+    private fun trazarRuta(indiceEncontrado:Int) {
+        salonDestino=respuesta
+        //respuesta = "alan"//Limpiamos respuesta
+        //salonDestino = "a004"
         ubicacionActual { currentLocation -> //Obtenemos la ubicacion actual
             if (currentLocation != null) {//Si la ubicacion actual no es nula entonces procedemos
                 //if (verificaDistancia(currentLocation) == true) {
-                    var indiceEncontrado: Int? = null
-                    for ((indice, elemento) in salonesDisponibles.withIndex()) {
-                        if (elemento[0] == salonDestino) {
-                            indiceEncontrado = indice
-                            break
-                        }
-                    }
                     if (indiceEncontrado != null) {//Si esta dentro de los salones disponibles entonces traza la ruta
                         textoAVoz("Se trazara la ruta al salon que quieres llegar")
                         if (::map.isInitialized) {//Si el mapa ya esta inicializado entonces trazaremos la ruta
                             //val calculaD = calcularDistancia()
+
                             val elementoEncontrado =
                                 salonesDisponibles[indiceEncontrado]//Guardamos los datos del salon: cadena,latitud,longitud Destino
                             val destino =
@@ -125,7 +162,26 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, OnMyLocationButton
                             val distancia: Double =
                                 calcularDistancia().calculaDistancia(currentLocation, destino)
                             textoAVoz("Estas a una distancia de: ${distancia.toInt()} metros")
+                            //Aqui pinto la linea
                             drawLineOnMap(currentLocation, destino)
+                            //Si ya se pinto la linea entonces
+                            if(rutaTrazada==true){
+                                //Muestro el boton de comenzar viaje
+                                btnCalculate.visibility = View.INVISIBLE
+                                btnRuta.visibility = View.VISIBLE
+                                //askSpeechInput("Dime Si o No para comenzar")
+                            }
+
+                            /*
+                            do{
+                                textoAVoz("¿Deseas comenzar tu viaje?")
+                            }while(!textToSpeech.isSpeaking)
+                            askSpeechInput("Dime Si o No para comenzar")
+                            if (respuesta=="No"){
+                                btnCalculate.visibility = View.GONE
+                            }else{//Comenzamos con el viaje
+
+                            }*/
                         } else {
                             Toast.makeText(
                                 this,
@@ -211,20 +267,28 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, OnMyLocationButton
 
 
     //---------------------------------- VOZ A TEXTO ----------------------------------------------//
-    private fun askSpeechInput() {
-        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
-            Toast.makeText(this, "El Dictado de voz no está disponible", Toast.LENGTH_SHORT).show()
+    private fun askSpeechInput(textoAVoz: String) {
+        if (!preguntaEnProgreso) {
+            preguntaEnProgreso = true // Establece la bandera como verdadera para indicar una pregunta en progreso.
+
+            if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+                Toast.makeText(this, "El Dictado de voz no está disponible", Toast.LENGTH_SHORT).show()
+            } else {
+                val i = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                i.putExtra(
+                    RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                    RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+                )
+                i.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "es-419") // Para Spanish Latin
+                i.putExtra(RecognizerIntent.EXTRA_PROMPT, textoAVoz)
+                startActivityForResult(i, RQ_SPEECH_REC) // Lanza la actividad de reconocimiento de voz
+            }
         } else {
-            val i = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
-            i.putExtra(
-                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
-            )
-            i.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "es-419") // Para Spanish Latin
-            i.putExtra(RecognizerIntent.EXTRA_PROMPT, "Elige un salón")
-            startActivityForResult(i, RQ_SPEECH_REC) // Lanza la actividad de reconocimiento de voz
+            // Muestra un mensaje o realiza otra acción si ya hay una pregunta en progreso.
+            //textoAVoz("Por favor, espere a que se complete la pregunta anterior.")
         }
     }
+
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
@@ -232,15 +296,18 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, OnMyLocationButton
             val result: ArrayList<String>? =
                 data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
             if (result != null && result.isNotEmpty()) {
-                salonDestino = result?.get(0).toString()
-                trazarRuta()
+                // salonDestino = result?.get(0).toString()
+                respuesta = result?.get(0).toString()
+
             } else {
                 runOnUiThread {
                     Toast.makeText(this, "Ocurrió un error", Toast.LENGTH_SHORT).show()
                 }
             }
         }
+        preguntaEnProgreso = false // Establece la bandera como false después de recibir la respuesta.
     }
+
 
     //---------------------------------- VOZ A TEXTO ----------------------------------------------//
 
@@ -279,6 +346,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, OnMyLocationButton
             .width(5f)
 
         poly = map.addPolyline(polylineOptions)
+        // Marcar que la ruta está trazada
+        rutaTrazada = true
     }
 
     private fun requestLocationPermission() {

@@ -17,4 +17,12 @@
         android:id="@+id/btnEscuchar">
     </Button>
 
+    <Button
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:text="Comenzar Viaje"
+        android:id="@+id/btnRuta">
+    </Button>
+
 </FrameLayout>
