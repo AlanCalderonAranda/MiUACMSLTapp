@@ -32,10 +32,10 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.*
 
 class MainActivity : AppCompatActivity(), OnMapReadyCallback, OnMyLocationButtonClickListener,
-    TextToSpeech.OnInitListener {
+    TextToSpeech.OnInitListener, View.OnClickListener {
     //Para el Mapa
     private lateinit var map: GoogleMap
-    private lateinit var btnCalculate: Button //Es el boton que dice escuchar
+    private lateinit var btnEscuchar: Button //Es el boton que dice escuchar
     private lateinit var btnRuta: Button
     //private lateinit var btnEscuchar:Button
     private var rutaTrazada:Boolean = false
@@ -55,8 +55,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, OnMyLocationButton
     //PARA LA RUTA
     //Localizacion del A007
     protected val a_007 = LatLng(19.313294, -99.057665)
-    private var salonDestino: String = "alan"
+    private var salonDestino: String = ""
     private var respuesta:String = " "
+    private lateinit var destino : LatLng
 
     val salonesDisponibles = arrayListOf(
         arrayListOf("a004", 19.313343, -99.057829),
@@ -87,58 +88,94 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, OnMyLocationButton
         // Inicializa el cliente de ubicación.
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
-        btnCalculate = findViewById(R.id.btnEscuchar)
-        btnRuta = findViewById(R.id.btnRuta)
-        //Ocultamos el boton de Comenzar viaje
-        btnRuta.visibility = View.INVISIBLE
-
+        //Inicializamos el textToSpeech
+        textToSpeech = TextToSpeech(this, this)
 
         //Cargamos el Mapa
         createMapFragment()
 
-        //Inicializamos el textToSpeech
-        textToSpeech = TextToSpeech(this, this)
+        btnEscuchar = findViewById(R.id.btnEscuchar)
+        btnRuta = findViewById(R.id.btnRuta)
 
-        btnCalculate.setOnClickListener {
-            start = ""
-            end = ""
-            poly?.remove()
-            poly = null
-            //Primero escuchamos a que salon quiere ir
-            //textoAVoz("Por favor dime a que aula quieres llegar: ")
-            askSpeechInput("Dime a que Aula es a la que quieres llegar")
-            //comprobamos si el salon que dijo esta en los disponibles
-            var indiceEncontrado: Int = -1
-            for ((indice, elemento) in salonesDisponibles.withIndex()) {
-                if (elemento[0] == respuesta) {
-                    indiceEncontrado = indice
-                    break
-                }
-            }
-            if (indiceEncontrado != -1) {
-                trazarRuta(indiceEncontrado)
-            }else{
-                print("El salon buscado no concuerda")
-            }
-        }
+        btnEscuchar.visibility = View.VISIBLE
+        btnRuta.visibility = View.INVISIBLE
 
-        btnRuta.setOnClickListener{
-            textoAVoz("Deseas comenzar el viaje? Responde con Si o No")
-            askSpeechInput("Responde con Si o No")
-            Log.d("MiTag", "-------------------$respuesta-----------------")
-            if (respuesta.equals("Si", ignoreCase = true)){
-                //Comenzaremos el viaje
-            }
-            if(respuesta.equals("No", ignoreCase = true)){
-                btnRuta.visibility = View.INVISIBLE
-                btnCalculate.visibility = View.VISIBLE
-                //Elimino la linea y los marcadores
+        btnEscuchar.setOnClickListener(this);
+        btnRuta.setOnClickListener(this)
+    }
+
+    override
+    fun onClick(view: View) {
+        when (view.id) {
+            R.id.btnEscuchar -> {
+                start = ""
+                end = ""
+                //Si antes ya nos habia dado una ruta la limpiamos
                 poly?.remove()
-                map.clear()
+                poly = null
+                //Primero escuchamos a que salon quiere ir
+
+                //askSpeechInput("Dime a que Aula es a la que quieres llegar")
+                //comprobamos si el salon que dijo esta en los disponibles
+                respuesta="a004"
+                var indiceEncontrado: Int = -1
+                for ((indice, elemento) in salonesDisponibles.withIndex()) {
+                    if (elemento[0] == respuesta) {
+                        indiceEncontrado = indice
+                        break
+                    }
+                }
+                if (indiceEncontrado != -1) {//Si se encontro el salon entonces trazamos la ruta
+                    trazarRuta(indiceEncontrado)
+                } else {
+                    print("El salon buscado no concuerda")
+                }
+
             }
-            Log.d("MiTag", "-------------------$respuesta-----------------")
+
+            R.id.btnRuta -> {
+                textoAVoz("Deseas comenzar el viaje? Responde con Si o No")
+                //askSpeechInput("Responde con Si o No")
+                Log.d("MiTag", "-------------------$respuesta-----------------")
+                respuesta="Si"
+                if (respuesta.equals("Si", ignoreCase = true)){
+                    //Comenzaremos el viaje
+                    comenzarViaje()
+                }
+                if(respuesta.equals("No", ignoreCase = true)){
+                    btnRuta.visibility = View.INVISIBLE
+                    btnEscuchar.visibility = View.VISIBLE
+                    //Elimino la linea y los marcadores
+                    poly?.remove()
+                    map.clear()
+                }
+                Log.d("MiTag", "-------------------$respuesta-----------------")
+            }
         }
     }
+
+    private fun comenzarViaje() {
+        ubicacionActual { currentLocation ->
+            if (currentLocation != null) {
+                val distancia = calcularDistancia().calculaDistancia(currentLocation, destino)
+
+                if (distancia >= 3) {
+                    // Informa al usuario la distancia cada 3 metros
+                    textoAVoz("Estás a una distancia de: ${distancia.toInt()} metros")
+                }
+
+                if (distancia > 0) {
+                    // Espera un tiempo antes de verificar nuevamente (por ejemplo, 5 segundos)
+                    Thread.sleep(5000)
+                    comenzarViaje() // Llamada recursiva para verificar la ubicación y distancia nuevamente
+                } else {
+                    // Has llegado a tu destino
+                    textoAVoz("Has llegado a tu destino.")
+                }
+            }
+        }
+    }
+
 
     private fun trazarRuta(indiceEncontrado:Int) {
         salonDestino=respuesta
@@ -154,7 +191,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, OnMyLocationButton
 
                             val elementoEncontrado =
                                 salonesDisponibles[indiceEncontrado]//Guardamos los datos del salon: cadena,latitud,longitud Destino
-                            val destino =
+                            //val destino =
+                                destino =
                                 LatLng(
                                     elementoEncontrado[1] as Double,
                                     elementoEncontrado[2] as Double
@@ -167,7 +205,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, OnMyLocationButton
                             //Si ya se pinto la linea entonces
                             if(rutaTrazada==true){
                                 //Muestro el boton de comenzar viaje
-                                btnCalculate.visibility = View.INVISIBLE
+                                btnEscuchar.visibility = View.INVISIBLE
                                 btnRuta.visibility = View.VISIBLE
                                 //askSpeechInput("Dime Si o No para comenzar")
                             }
