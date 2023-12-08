@@ -104,7 +104,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, OnMyLocationButton
 
         btnEscuchar.setOnClickListener(this)
         btnRuta.setOnClickListener(this)
-        btnVolver.setOnClickListener(this)
+        //btnVolver.setOnClickListener(this)
     }
 
     override
