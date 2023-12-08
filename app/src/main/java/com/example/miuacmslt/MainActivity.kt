@@ -36,6 +36,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, OnMyLocationButton
     //Para el Mapa
     private lateinit var map: GoogleMap
     private lateinit var btnEscuchar: Button //Es el boton que dice escuchar
+    private lateinit var btnVolver:Button//Boton para cancelar el viaje o regresar a escuchar al usuario
     private lateinit var btnRuta: Button
     //private lateinit var btnEscuchar:Button
     private var rutaTrazada:Boolean = false
@@ -96,12 +97,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, OnMyLocationButton
 
         btnEscuchar = findViewById(R.id.btnEscuchar)
         btnRuta = findViewById(R.id.btnRuta)
+        //btnVolver = findViewById(R.id.btnVolver)
 
         btnEscuchar.visibility = View.VISIBLE
         btnRuta.visibility = View.INVISIBLE
 
-        btnEscuchar.setOnClickListener(this);
+        btnEscuchar.setOnClickListener(this)
         btnRuta.setOnClickListener(this)
+        btnVolver.setOnClickListener(this)
     }
 
     override
@@ -115,9 +118,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, OnMyLocationButton
                 poly = null
                 //Primero escuchamos a que salon quiere ir
 
-                //askSpeechInput("Dime a que Aula es a la que quieres llegar")
+                askSpeechInput("Dime a que Aula es a la que quieres llegar")
                 //comprobamos si el salon que dijo esta en los disponibles
-                respuesta="a004"
+                //respuesta="a004"
                 var indiceEncontrado: Int = -1
                 for ((indice, elemento) in salonesDisponibles.withIndex()) {
                     if (elemento[0] == respuesta) {
@@ -161,7 +164,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, OnMyLocationButton
 
                 if (distancia >= 3) {
                     // Informa al usuario la distancia cada 3 metros
-                    textoAVoz("Estás a una distancia de: ${distancia.toInt()} metros")
+                    textoAVoz("Estás a una distancia de: ${distancia.toInt()} metros, avanza de manera recta")
                 }
 
                 if (distancia > 0) {
